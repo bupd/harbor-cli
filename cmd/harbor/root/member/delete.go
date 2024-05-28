@@ -3,6 +3,7 @@ package member
 import (
 	"context"
 	"strconv"
+	"sync"
 
 	"github.com/goharbor/go-client/pkg/sdk/v2.0/client/member"
 	"github.com/goharbor/harbor-cli/pkg/utils"
@@ -18,9 +19,12 @@ func DeleteMemberCommand() *cobra.Command {
 		Short: "delete project by name or id",
 		Args:  cobra.MinimumNArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
-			var err error
+			var wg sync.WaitGroup
+			errChan := make(
+				chan error,
+				len(args),
+			) // Channel to collect errors
 
-			projectName := args[0]
 			var memberID []int64
 
 			for i, mid := range args {
@@ -31,14 +35,45 @@ func DeleteMemberCommand() *cobra.Command {
 			}
 
 			if len(args) > 1 {
-				err = runDeleteMember(args[0], memberID)
+				for _, mid := range memberID {
+					wg.Add(1)
+					go func(member int64) {
+						defer wg.Done()
+						err := runDeleteMember(args[0], member)
+						if err != nil {
+							errChan <- err
+						}
+					}(mid)
+				}
 			} else {
-				projectName = utils.GetProjectNameFromUser()
-				memberID = utils.GetMemberIDFromUser()
-				err = runDeleteMember(projectName, memberID)
+        projectName := utils.GetProjectNameFromUser()
+				memID := utils.GetMemberIDFromUser(projectName)
+				wg.Add(1)
+				go func(member int64) {
+					defer wg.Done()
+					err := runDeleteMember(projectName, memID)
+					if err != nil {
+						errChan <- err
+					}
+				}(memID)
 			}
-			if err != nil {
-				log.Errorf("failed to delete project: %v", err)
+			// Wait for all goroutines to finish
+			go func() {
+				wg.Wait()
+				close(errChan)
+			}()
+
+			// Collect and handle errors
+			var finalErr error
+			for err := range errChan {
+				if finalErr == nil {
+					finalErr = err
+				} else {
+					log.Errorf("Error: %v", err)
+				}
+			}
+			if finalErr != nil {
+				log.Errorf("failed to delete some projects: %v", finalErr)
 			}
 		},
 	}
@@ -46,10 +81,11 @@ func DeleteMemberCommand() *cobra.Command {
 	return cmd
 }
 
-func runDeleteMember(projectName, memberID string) error {
+func runDeleteMember(projectName string, memberID int64) error {
 	credentialName := viper.GetString("current-credential-name")
 	client := utils.GetClientByCredentialName(credentialName)
 	ctx := context.Background()
+  log.Println(projectName, memberID)
 	_, err := client.Member.DeleteProjectMember(
 		ctx,
 		&member.DeleteProjectMemberParams{ProjectNameOrID: projectName, Mid: memberID},
