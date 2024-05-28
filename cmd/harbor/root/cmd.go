@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/goharbor/harbor-cli/cmd/harbor/root/member"
 	"github.com/goharbor/harbor-cli/cmd/harbor/root/project"
 	"github.com/goharbor/harbor-cli/cmd/harbor/root/registry"
 	repositry "github.com/goharbor/harbor-cli/cmd/harbor/root/repository"
@@ -100,6 +101,7 @@ harbor help
 	root.AddCommand(
 		versionCommand(),
 		LoginCommand(),
+    member.Member(),
 		project.Project(),
 		registry.Registry(),
 		repositry.Repository(),
