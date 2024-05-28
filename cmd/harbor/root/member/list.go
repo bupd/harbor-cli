@@ -24,16 +24,22 @@ func ListMemberCommand() *cobra.Command {
 	var opts listMemberOptions
 
 	cmd := &cobra.Command{
-		Use:   "list [projectName or ID]",
-		Short: "list members of a project by projectName Or ID",
-		Args:  cobra.ExactArgs(1),
-    Example: "harbor member list my-project",
+		Use:     "list [projectName or ID]",
+		Short:   "list members of a project by projectName Or ID",
+		Args:    cobra.MaximumNArgs(1),
+		Example: "harbor member list my-project",
 		Run: func(cmd *cobra.Command, args []string) {
-			opts.projectNameOrID = args[0]
+			if len(args) > 0 {
+				opts.projectNameOrID = args[0]
+			} else {
+				opts.projectNameOrID = utils.GetProjectNameFromUser()
+			}
+
 			members, err := RunListMember(opts)
 			if err != nil {
 				log.Fatalf("failed to get members list: %v", err)
 			}
+
 			FormatFlag := viper.GetString("output-format")
 			if FormatFlag == "json" {
 				utils.PrintPayloadInJSONFormat(members)
