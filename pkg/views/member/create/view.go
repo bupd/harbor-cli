@@ -28,9 +28,21 @@ type CreateView struct {
 }
 
 func CreateMemberView(createView *CreateView) {
+	roleOptions := []string{"Project Admin", "Developer", "Guest", "Maintainer", "Limited Guest"}
+	var roleSelectOptions []huh.Option[int]
+	for id, name := range roleOptions {
+		roleSelectOptions = append(roleSelectOptions, huh.NewOption(name, id))
+	}
+
 	theme := huh.ThemeCharm()
 	err := huh.NewForm(
 		huh.NewGroup(
+			huh.NewSelect[int]().
+				Description("Select a Role").
+				Title("Role").
+				Value(&createView.RoleID).
+				Options(roleSelectOptions...),
+
 			huh.NewInput().
 				Title("Username").
 				Value(&createView.MemberUser.Username).

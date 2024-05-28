@@ -24,7 +24,7 @@ func CreateMemberCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create [ProjectName Or ID]",
 		Short: "create member",
-    Long: "create member for the project",
+		Long:  "create member for the project",
 		Args:  cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			var err error
@@ -80,7 +80,7 @@ func runCreateMember(opts create.CreateView) error {
 	response, err := client.Member.CreateProjectMember(
 		ctx, &member.CreateProjectMemberParams{
 			ProjectMember: &models.ProjectMember{
-				RoleID:      int64(opts.RoleID),
+				RoleID:      int64(opts.RoleID + 1),
 				MemberUser:  opts.MemberUser,
 				MemberGroup: opts.MemberGroup,
 			},
