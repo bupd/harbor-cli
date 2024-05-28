@@ -2,6 +2,7 @@ package member
 
 import (
 	"context"
+	"os"
 
 	"github.com/goharbor/go-client/pkg/sdk/v2.0/client/member"
 	"github.com/goharbor/harbor-cli/pkg/utils"
@@ -33,6 +34,9 @@ func ListMemberCommand() *cobra.Command {
 				opts.projectNameOrID = args[0]
 			} else {
 				opts.projectNameOrID = utils.GetProjectNameFromUser()
+				if opts.projectNameOrID == "" {
+					os.Exit(1)
+				}
 			}
 
 			members, err := RunListMember(opts)
