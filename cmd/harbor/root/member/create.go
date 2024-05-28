@@ -22,8 +22,9 @@ func CreateMemberCommand() *cobra.Command {
 	opts.MemberGroup = &models.UserGroup{} // Initialize MemberGroup
 
 	cmd := &cobra.Command{
-		Use:   "create",
+		Use:   "create [ProjectName Or ID]",
 		Short: "create member",
+    Long: "create member for the project",
 		Args:  cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			var err error
