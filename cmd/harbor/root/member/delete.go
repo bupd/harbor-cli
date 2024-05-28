@@ -15,8 +15,8 @@ import (
 // Deletes the member of the given project and Member
 func DeleteMemberCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "delete",
-		Short: "delete project by name or id",
+		Use:   "delete [projectName or ID] [memberID]",
+		Short: "delete member by id",
 		Args:  cobra.MinimumNArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
 			var wg sync.WaitGroup
@@ -34,7 +34,9 @@ func DeleteMemberCommand() *cobra.Command {
 				}
 			}
 
-			if len(args) > 1 {
+			if args[1] == "%" {
+				runDeleteAllMember(args[0])
+			} else if len(args) > 1 {
 				for _, mid := range memberID {
 					wg.Add(1)
 					go func(member int64) {
@@ -46,7 +48,7 @@ func DeleteMemberCommand() *cobra.Command {
 					}(mid)
 				}
 			} else {
-        projectName := utils.GetProjectNameFromUser()
+				projectName := utils.GetProjectNameFromUser()
 				memID := utils.GetMemberIDFromUser(projectName)
 				wg.Add(1)
 				go func(member int64) {
@@ -73,7 +75,7 @@ func DeleteMemberCommand() *cobra.Command {
 				}
 			}
 			if finalErr != nil {
-				log.Errorf("failed to delete some projects: %v", finalErr)
+				log.Errorf("failed to delete some members: %v", finalErr)
 			}
 		},
 	}
@@ -81,11 +83,49 @@ func DeleteMemberCommand() *cobra.Command {
 	return cmd
 }
 
+func runDeleteAllMember(projectName string) {
+	var wg sync.WaitGroup
+	errChan := make(chan error, 0)
+	credentialName := viper.GetString("current-credential-name")
+	client := utils.GetClientByCredentialName(credentialName)
+	ctx := context.Background()
+	response, err := client.Member.ListProjectMembers(
+		ctx,
+		&member.ListProjectMembersParams{ProjectNameOrID: projectName},
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for _, member := range response.Payload {
+		wg.Add(1)
+		go func(memberID int64) {
+			defer wg.Done()
+			err := runDeleteMember(projectName, memberID)
+			if err != nil {
+				errChan <- err
+			}
+		}(member.ID) // Pass member.ID to the goroutine
+	}
+
+	// Wait for all goroutines to finish
+	go func() {
+		wg.Wait()
+		close(errChan)
+	}()
+
+	// Handle errors after all deletions are done
+	for err := range errChan {
+		if err != nil {
+			log.Errorln("Error:", err)
+		}
+	}
+}
+
 func runDeleteMember(projectName string, memberID int64) error {
 	credentialName := viper.GetString("current-credential-name")
 	client := utils.GetClientByCredentialName(credentialName)
 	ctx := context.Background()
-  log.Println(projectName, memberID)
 	_, err := client.Member.DeleteProjectMember(
 		ctx,
 		&member.DeleteProjectMemberParams{ProjectNameOrID: projectName, Mid: memberID},
