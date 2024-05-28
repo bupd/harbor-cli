@@ -13,6 +13,7 @@ func Member() *cobra.Command {
 	}
 	cmd.AddCommand(
 		ListMemberCommand(),
+		CreateMemberCommand(),
 	)
 
 	return cmd
