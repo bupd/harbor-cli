@@ -9,10 +9,12 @@ import (
 
 	"github.com/goharbor/go-client/pkg/harbor"
 	v2client "github.com/goharbor/go-client/pkg/sdk/v2.0/client"
+	"github.com/goharbor/go-client/pkg/sdk/v2.0/client/member"
 	"github.com/goharbor/go-client/pkg/sdk/v2.0/client/project"
 	"github.com/goharbor/go-client/pkg/sdk/v2.0/client/registry"
 	"github.com/goharbor/go-client/pkg/sdk/v2.0/client/repository"
 	"github.com/goharbor/go-client/pkg/sdk/v2.0/client/user"
+	mview "github.com/goharbor/harbor-cli/pkg/views/member/select"
 	pview "github.com/goharbor/harbor-cli/pkg/views/project/select"
 	rview "github.com/goharbor/harbor-cli/pkg/views/registry/select"
 	repoView "github.com/goharbor/harbor-cli/pkg/views/repository/select"
@@ -70,11 +72,9 @@ func GetRegistryNameFromUser() int64 {
 		}
 
 		rview.RegistryList(response.Payload, registryId)
-
 	}()
 
 	return <-registryId
-
 }
 
 func GetProjectNameFromUser() string {
@@ -88,10 +88,28 @@ func GetProjectNameFromUser() string {
 			log.Fatal(err)
 		}
 		pview.ProjectList(response.Payload, projectName)
-
 	}()
 
 	return <-projectName
+}
+
+func GetMemberIDFromUser(projectName string) int64 {
+	memberId := make(chan int64)
+	go func() {
+		credentialName := viper.GetString("current-credential-name")
+		client := GetClientByCredentialName(credentialName)
+		ctx := context.Background()
+		response, err := client.Member.ListProjectMembers(
+			ctx,
+			&member.ListProjectMembersParams{ProjectNameOrID: projectName},
+		)
+		if err != nil {
+			log.Fatal(err)
+		}
+		mview.MemberList(response.Payload, memberId)
+	}()
+
+	return <-memberId
 }
 
 func GetRepoNameFromUser(projectName string) string {
@@ -101,7 +119,10 @@ func GetRepoNameFromUser(projectName string) string {
 		credentialName := viper.GetString("current-credential-name")
 		client := GetClientByCredentialName(credentialName)
 		ctx := context.Background()
-		response, err := client.Repository.ListRepositories(ctx, &repository.ListRepositoriesParams{ProjectName: projectName})
+		response, err := client.Repository.ListRepositories(
+			ctx,
+			&repository.ListRepositoriesParams{ProjectName: projectName},
+		)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -109,7 +130,6 @@ func GetRepoNameFromUser(projectName string) string {
 	}()
 
 	return <-repositoryName
-
 }
 
 func ParseProjectRepo(projectRepo string) (string, string) {
@@ -135,5 +155,4 @@ func GetUserIdFromUser() int64 {
 	}()
 
 	return <-userId
-
 }

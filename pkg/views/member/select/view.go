@@ -1,8 +1,9 @@
-package project
+package member
 
 import (
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"strings"
 
@@ -79,16 +80,20 @@ func (m model) View() string {
 	return "\n" + m.list.View()
 }
 
-func ProjectList(project []*models.Project, choice chan<- string) {
-	items := make([]list.Item, len(project))
-	for i, p := range project {
-		items[i] = item(p.Name)
+func MemberList(member []*models.ProjectMemberEntity, choice chan<- int64) {
+	items := make([]list.Item, len(member))
+	entityMap := make(map[string]int64, len(member))
+	for i, p := range member {
+		items[i] = item(p.EntityName)
+		entityMap[p.EntityName] = p.ID
 	}
+
+	// in this I want the choice to be p.choice returns the entity name but I need its equivalent p.id
 
 	const defaultWidth = 20
 
 	l := list.New(items, itemDelegate{}, defaultWidth, listHeight)
-	l.Title = "Select a project"
+	l.Title = "Select a member"
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(false)
 	l.Styles.Title = views.TitleStyle
@@ -104,6 +109,12 @@ func ProjectList(project []*models.Project, choice chan<- string) {
 	}
 
 	if p, ok := p.(model); ok {
-		choice <- p.choice
+		log.Println(p.choice)
+		if id, exists := entityMap[p.choice]; exists {
+			choice <- id
+		} else {
+			fmt.Println("Selected entity name does not exist in map.")
+			os.Exit(1)
+		}
 	}
 }
