@@ -2,7 +2,6 @@ package utils
 
 import (
 	"fmt"
-	"strings"
 	"time"
 )
 
@@ -25,13 +24,4 @@ func FormatCreatedTime(timestamp string) (string, error) {
 	} else {
 		return fmt.Sprintf("%d day ago", days), nil
 	}
-}
-
-func FormatUrl(url string) string {
-	// Check if URL starts with "http://" or "https://"
-	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
-		// If not, prepend "https://"
-		url = "https://" + url
-	}
-	return url
 }
