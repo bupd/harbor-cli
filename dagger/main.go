@@ -20,8 +20,8 @@ func (m *HarborCli) Build(
 	ctx context.Context,
 	// +optional
 	// +defaultPath="./"
-	source *dagger.Directory) *dagger.Directory {
-
+	source *dagger.Directory,
+) *dagger.Directory {
 	fmt.Println("🛠️  Building with Dagger...")
 	oses := []string{"linux", "darwin", "windows"}
 	arches := []string{"amd64", "arm64"}
@@ -63,14 +63,14 @@ func (m *HarborCli) Lint(
 		WithMountedDirectory("/src", source).
 		WithWorkdir("/src").
 		WithExec([]string{"golangci-lint", "run", "--timeout", "5m"})
-
 }
 
 func (m *HarborCli) PullRequest(ctx context.Context,
 	// +optional
 	// +defaultPath="./"
 	source *dagger.Directory,
-	githubToken string) {
+	githubToken string,
+) {
 	goreleaser := goreleaserContainer(source, githubToken).WithExec([]string{"release", "--snapshot", "--clean"})
 	_, err := goreleaser.Stderr(ctx)
 	if err != nil {
@@ -85,7 +85,8 @@ func (m *HarborCli) Release(
 	// +optional
 	// +defaultPath="./"
 	source *dagger.Directory,
-	githubToken string) {
+	githubToken string,
+) {
 	goreleaser := goreleaserContainer(source, githubToken).WithExec([]string{"release", "--clean"})
 	_, err := goreleaser.Stderr(ctx)
 	if err != nil {
@@ -95,6 +96,13 @@ func (m *HarborCli) Release(
 	log.Println("Release tasks completed successfully 🎉")
 }
 
+// PublishImage publishes a Docker image to a registry with a specific tag and signs it using Cosign.
+// cosignKey: the secret used for signing the image
+// cosignPassword: the password for the cosign secret
+// regUsername: the username for the registry
+// regPassword: the password for the registry
+// publishAddress: the address of the registry to publish the image
+// tag: the version tag for the image
 func (m *HarborCli) PublishImage(
 	ctx context.Context,
 	// +optional
@@ -104,9 +112,9 @@ func (m *HarborCli) PublishImage(
 	cosignPassword string,
 	regUsername string,
 	regPassword string,
-  publishAddress string,
+	publishAddress string,
+	tag string,
 ) string {
-
 	builder := m.Build(ctx, source)
 	// Create a minimal cli_runtime container
 	cli_runtime := dag.Container().
@@ -115,14 +123,33 @@ func (m *HarborCli) PublishImage(
 		WithFile("/root/harbor", builder.File("/")).
 		WithEntrypoint([]string{"./harbor"})
 
-	addr, _ := cli_runtime.Publish(ctx, publishAddress)
 	cosign_password := dag.SetSecret("cosign_password", cosignPassword)
 	regpassword := dag.SetSecret("reg_password", regPassword)
-	_, err := dag.Cosign().Sign(ctx, cosignKey, cosign_password, []string{addr}, dagger.CosignSignOpts{RegistryUsername: regUsername, RegistryPassword: regpassword})
+
+	// Push the versioned tag
+	versionedAddress := fmt.Sprintf("%s:%s", publishAddress, tag)
+	addr, err := cli_runtime.Publish(ctx, versionedAddress)
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("Published to %s 🎉\n", addr)
+	_, err = dag.Cosign().Sign(ctx, cosignKey, cosign_password, []string{addr}, dagger.CosignSignOpts{RegistryUsername: regUsername, RegistryPassword: regpassword})
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("Successfully published image to %s 🎉\n", addr)
+
+	// Push the latest tag
+	latestAddress := fmt.Sprintf("%s:latest", publishAddress)
+	addr, err = cli_runtime.Publish(ctx, latestAddress)
+	if err != nil {
+		panic(err)
+	}
+	_, err = dag.Cosign().Sign(ctx, cosignKey, cosign_password, []string{addr}, dagger.CosignSignOpts{RegistryUsername: regUsername, RegistryPassword: regpassword})
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("Successfully published image to %s 🎉\n", addr)
+
 	return addr
 }
 
