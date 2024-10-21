@@ -20,7 +20,7 @@ jobs:
           echo "reg password: ${{  secrets.REGISTRY_PASSWORD  }}"
           echo "reg password: ${{  secrets.doesnotexist  }}"
           echo "reg username: ${{  env.REGISTRY_USERNAME }}"
-          echo "publish publish-address: ${{ env.PUBLISH_ADDRESS }}"
+          echo "publish publish-address: ${{ vars.PUBLISH_ADDRESS }}"
   docker-publish:
     runs-on: ubuntu-latest
     steps:
@@ -34,4 +34,4 @@ jobs:
         with:
           version: "latest"
           verb: call
-          args: publish-image --source=. --cosign-key=${{ secrets.COSIGN_KEY }} --cosign-password=${{ secrets.COSIGN_PASSWORD }}  --reg-username=${{ env.REGISTRY_USERNAME }}  --reg-password=${{ env.REGISTRY_PASSWORD }} --publish-address=${{ vars.PUBLISH_ADDRESS }} --tag=${{ github.ref_name }}
+          args: publish-image --source=. --cosign-key=${{ secrets.COSIGN_KEY }} --cosign-password=${{ secrets.COSIGN_PASSWORD }}  --reg-username=${{ secrets.REGISTRY_USERNAME }}  --reg-password=${{ secrets.REGISTRY_PASSWORD }} --publish-address=${{ vars.PUBLISH_ADDRESS }} --tag=${{ github.ref_name }}
