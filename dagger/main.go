@@ -12,8 +12,6 @@ const (
 	GO_VERSION           = "1.22.5"
 	SYFT_VERSION         = "v1.9.0"
 	GORELEASER_VERSION   = "v2.1.0"
-	APP_NAME             = "dagger-harbor-cli"
-	PUBLISH_ADDRESS      = "demo.goharbor.io/library/harbor-cli:0.0.3"
 )
 
 type HarborCli struct{}
@@ -106,6 +104,7 @@ func (m *HarborCli) PublishImage(
 	cosignPassword string,
 	regUsername string,
 	regPassword string,
+  publishAddress string,
 ) string {
 
 	builder := m.Build(ctx, source)
@@ -116,7 +115,7 @@ func (m *HarborCli) PublishImage(
 		WithFile("/root/harbor", builder.File("/")).
 		WithEntrypoint([]string{"./harbor"})
 
-	addr, _ := cli_runtime.Publish(ctx, PUBLISH_ADDRESS)
+	addr, _ := cli_runtime.Publish(ctx, publishAddress)
 	cosign_password := dag.SetSecret("cosign_password", cosignPassword)
 	regpassword := dag.SetSecret("reg_password", regPassword)
 	_, err := dag.Cosign().Sign(ctx, cosignKey, cosign_password, []string{addr}, dagger.CosignSignOpts{RegistryUsername: regUsername, RegistryPassword: regpassword})

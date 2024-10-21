@@ -8,6 +8,13 @@ on:
       - "v*"
 
 jobs:
+  github-get-tags:
+    runs-on: ubuntu-latest
+    steps:
+      - name: GitHub Tag Name example
+        run: |
+          echo "Tag name from GITHUB_REF_NAME: $GITHUB_REF_NAME"
+          echo "Tag name from github.ref_name: ${{  github.ref_name }}"
   docker-publish:
     runs-on: ubuntu-latest
     steps:
@@ -21,4 +28,4 @@ jobs:
         with:
           version: "latest"
           verb: call
-          args: publish-image --source=. --cosign-key=${{ secrets.COSIGN_KEY }} --cosign-password=${{ env.COSIGN_PASSWORD }}  --reg-username=${{ env.REGISTRY_USERNAME }}  --reg-password=${{ env.REGISTRY_PASSWORD }}
+          args: publish-image --source=. --cosign-key=${{ secrets.COSIGN_KEY }} --cosign-password=${{ env.COSIGN_PASSWORD }}  --reg-username=${{ env.REGISTRY_USERNAME }}  --reg-password=${{ env.REGISTRY_PASSWORD }} --publish-address=${{ env.PUBLISH_ADDRESS }}
