@@ -108,7 +108,7 @@ func (m *HarborCli) PublishImage(
 	// +optional
 	// +defaultPath="./"
 	source *dagger.Directory,
-	cosignKey *dagger.Secret,
+	cosignKey string,
 	cosignPassword string,
 	regUsername string,
 	regPassword string,
@@ -123,6 +123,7 @@ func (m *HarborCli) PublishImage(
 		WithFile("/root/harbor", builder.File("/")).
 		WithEntrypoint([]string{"./harbor"})
 
+	cosign_key := dag.SetSecret("cosign_key", cosignKey)
 	cosign_password := dag.SetSecret("cosign_password", cosignPassword)
 	regpassword := dag.SetSecret("reg_password", regPassword)
 
@@ -132,7 +133,7 @@ func (m *HarborCli) PublishImage(
 	if err != nil {
 		panic(err)
 	}
-	_, err = dag.Cosign().Sign(ctx, cosignKey, cosign_password, []string{addr}, dagger.CosignSignOpts{RegistryUsername: regUsername, RegistryPassword: regpassword})
+	_, err = dag.Cosign().Sign(ctx, cosign_key, cosign_password, []string{addr}, dagger.CosignSignOpts{RegistryUsername: regUsername, RegistryPassword: regpassword})
 	if err != nil {
 		panic(err)
 	}
@@ -144,7 +145,7 @@ func (m *HarborCli) PublishImage(
 	if err != nil {
 		panic(err)
 	}
-	_, err = dag.Cosign().Sign(ctx, cosignKey, cosign_password, []string{addr}, dagger.CosignSignOpts{RegistryUsername: regUsername, RegistryPassword: regpassword})
+	_, err = dag.Cosign().Sign(ctx, cosign_key, cosign_password, []string{addr}, dagger.CosignSignOpts{RegistryUsername: regUsername, RegistryPassword: regpassword})
 	if err != nil {
 		panic(err)
 	}
