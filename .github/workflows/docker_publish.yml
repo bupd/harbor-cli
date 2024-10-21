@@ -10,15 +10,17 @@ on:
 jobs:
   github-get-tags:
     runs-on: ubuntu-latest
+    environment: production
     steps:
       - name: GitHub Tag Name example
         run: |
           echo "Tag name from GITHUB_REF_NAME: $GITHUB_REF_NAME"
           echo "Tag name from github.ref_name: ${{  github.ref_name }}"
           echo "cosign password: ${{  secrets.COSIGN_PASSWORD }}"
-          echo "reg password: $REGISTRY_PASSWORD"
-          echo "reg username: $env.REGISTRY_USERNAME"
-          echo "publish publish-address: $PUBLISH_ADDRESS"
+          echo "reg password: ${{  secrets.REGISTRY_PASSWORD  }}"
+          echo "reg password: ${{  secrets.doesnotexist  }}"
+          echo "reg username: ${{  env.REGISTRY_USERNAME }}"
+          echo "publish publish-address: ${{ env.PUBLISH_ADDRESS }}"
   docker-publish:
     runs-on: ubuntu-latest
     steps:
@@ -32,4 +34,4 @@ jobs:
         with:
           version: "latest"
           verb: call
-          args: publish-image --source=. --cosign-key=${{ secrets.COSIGN_KEY }} --cosign-password=${{ secrets.COSIGN_PASSWORD }}  --reg-username=${{ env.REGISTRY_USERNAME }}  --reg-password=${{ env.REGISTRY_PASSWORD }} --publish-address=${{ env.PUBLISH_ADDRESS }} --tag=${{ github.ref_name }}
+          args: publish-image --source=. --cosign-key=${{ secrets.COSIGN_KEY }} --cosign-password=${{ secrets.COSIGN_PASSWORD }}  --reg-username=${{ env.REGISTRY_USERNAME }}  --reg-password=${{ env.REGISTRY_PASSWORD }} --publish-address=${{ vars.PUBLISH_ADDRESS }} --tag=${{ github.ref_name }}
