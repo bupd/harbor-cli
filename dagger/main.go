@@ -21,11 +21,12 @@ func (m *HarborCli) Build(
 	// +optional
 	// +defaultPath="./"
 	source *dagger.Directory,
-) *dagger.Directory {
+) []*dagger.Container {
+	var builds []*dagger.Container
+
 	fmt.Println("🛠️  Building with Dagger...")
 	oses := []string{"linux", "darwin", "windows"}
 	arches := []string{"amd64", "arm64"}
-	outputs := dag.Directory()
 	for _, goos := range oses {
 		for _, goarch := range arches {
 			bin_path := fmt.Sprintf("build/%s/%s/", goos, goarch)
@@ -39,12 +40,13 @@ func (m *HarborCli) Build(
 				WithEnvVariable("GOCACHE", "/go/build-cache").
 				WithEnvVariable("GOOS", goos).
 				WithEnvVariable("GOARCH", goarch).
-				WithExec([]string{"go", "build", "-o", bin_path + "harbor", "/src/cmd/harbor/main.go"})
-			// Get reference to build output directory in container
-			outputs = outputs.WithDirectory(bin_path, builder.Directory(bin_path))
+				WithExec([]string{"go", "build", "-o", bin_path + "harbor", "/src/cmd/harbor/main.go"}).
+				WithWorkdir(bin_path).WithExec([]string{"ls"}).WithEntrypoint([]string{"./harbor"})
+
+			builds = append(builds, builder)
 		}
 	}
-	return outputs
+	return builds
 }
 
 func (m *HarborCli) Lint(
@@ -115,13 +117,51 @@ func (m *HarborCli) PublishImage(
 	publishAddress string,
 	tag string,
 ) string {
-	builder := m.Build(ctx, source)
+	var container *dagger.Container
+	var filteredBuilders []*dagger.Container
+
+	builders := m.Build(ctx, source)
+	if len(builders) > 0 {
+		fmt.Println(len(builders))
+		container = builders[0]
+		builders = builders[3:6]
+	}
+	dir := dag.Directory()
+	dir = dir.WithDirectory(".", container.Directory("."))
+
 	// Create a minimal cli_runtime container
 	cli_runtime := dag.Container().
 		From("alpine:latest").
 		WithWorkdir("/root/").
-		WithFile("/root/harbor", builder.File("/")).
+		WithFile("/root/harbor", dir.File("./harbor")).
+		WithExec([]string{"ls"}).
+		WithExec([]string{"./harbor", "--help"}).
 		WithEntrypoint([]string{"./harbor"})
+
+	for _, builder := range builders {
+		if !(buildPlatform(ctx, builder) == "linux/amd64") {
+			filteredBuilders = append(filteredBuilders, builder)
+		}
+	}
+
+	//  	// Create a builder container for multi-architecture images
+	// multiArchBuilder := dag.Container().
+	// 	From("docker/buildx:latest").
+	// 	WithWorkdir("/workspace")
+	//
+	// // Add binaries for each OS and architecture to the multi-arch image
+	// oses := []string{"linux", "darwin", "windows"}
+	// arches := []string{"amd64", "arm64"}
+	//
+	// for _, goos := range oses {
+	// 	for _, goarch := range arches {
+	// 		binPath := fmt.Sprintf("build/%s/%s/harbor", goos, goarch)
+	// 		multiArchBuilder = multiArchBuilder.WithFile(fmt.Sprintf("/workspace/%s/%s/harbor", goos, goarch), builder.File(binPath))
+	// 	}
+	// }
+
+	// Build the multi-architecture image
+	// multiArchImage := fmt.Sprintf("%s:%s", publishAddress, tag)
 
 	cosign_key := dag.SetSecret("cosign_key", cosignKey)
 	cosign_password := dag.SetSecret("cosign_password", cosignPassword)
@@ -129,15 +169,10 @@ func (m *HarborCli) PublishImage(
 
 	// Push the versioned tag
 	versionedAddress := fmt.Sprintf("%s:%s", publishAddress, tag)
-	addr, err := cli_runtime.Publish(ctx, versionedAddress)
+	addr, err := cli_runtime.Publish(ctx, versionedAddress, dagger.ContainerPublishOpts{PlatformVariants: filteredBuilders})
 	if err != nil {
 		panic(err)
 	}
-	_, err = dag.Cosign().Sign(ctx, cosign_key, cosign_password, []string{addr}, dagger.CosignSignOpts{RegistryUsername: regUsername, RegistryPassword: regpassword})
-	if err != nil {
-		panic(err)
-	}
-	fmt.Printf("Successfully published image to %s 🎉\n", addr)
 
 	// Push the latest tag
 	latestAddress := fmt.Sprintf("%s:latest", publishAddress)
@@ -152,6 +187,14 @@ func (m *HarborCli) PublishImage(
 	fmt.Printf("Successfully published image to %s 🎉\n", addr)
 
 	return addr
+}
+
+func buildPlatform(ctx context.Context, container *dagger.Container) string {
+	platform, err := container.Platform(ctx)
+	if err != nil {
+		log.Fatalf("error getting platform", err)
+	}
+	return string(platform)
 }
 
 func goreleaserContainer(directoryArg *dagger.Directory, githubToken string) *dagger.Container {
