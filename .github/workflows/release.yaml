@@ -28,8 +28,13 @@ jobs:
           args: release --github-token='env:${{ env.GITHUB_TOKEN }}'
 
   publish-images:
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
     runs-on: ubuntu-latest
     environment: PROD
+    id: publish
     env:
       COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
       COSIGN_KEY: ${{ secrets.COSIGN_KEY }}
@@ -49,6 +54,18 @@ jobs:
           version: "latest"
           verb: call
           args: "publish-image --cosign-password='env:${{ env.COSIGN_PASSWORD }}' --cosign-key='env:${{ env.COSIGN_KEY }}' --reg-username='${{ env.REGISTRY_USERNAME }}' --reg-password='env:${{ env.REGISTRY_PASSWORD }}' --reg-address='${{ env.REGISTRY_ADDRESS }}' --publish-address='${{ env.PUBLISH_ADDRESS }}' --tag='${{ env.TAG }}'"
+        outputs:
+          image_sha: ${{ steps.publish.outputs.image_sha }}
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3.1.1
+        with:
+          cosign-release: 'v2.1.1'
+
+      - name: Keyless signing of image
+        run: |
+          cosign sign --yes --rekor-url "https://rekor.sigstore.dev/" ${{ steps.publish.outputs.image_sha }}
+
       - name: Notify on success
         if: success()
         uses: actions/github-script@v6

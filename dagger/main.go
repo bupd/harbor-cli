@@ -163,8 +163,6 @@ func (m *HarborCli) Release(
 // PublishImage publishes a container image to a registry with a specific tag and signs it using Cosign.
 func (m *HarborCli) PublishImage(
 	ctx context.Context,
-	cosignKey *dagger.Secret,
-	cosignPassword *dagger.Secret,
 	regUsername string,
 	regPassword *dagger.Secret,
 	regAddress string,
@@ -177,10 +175,6 @@ func (m *HarborCli) PublishImage(
 	// Push the versioned tag
 	versionedAddress := fmt.Sprintf("%s:%s", publishAddress, tag)
 	addr, err := publisher.Publish(ctx, versionedAddress, dagger.ContainerPublishOpts{PlatformVariants: builds})
-	if err != nil {
-		panic(err)
-	}
-	_, err = dag.Cosign().Sign(ctx, cosignKey, cosignPassword, []string{addr}, dagger.CosignSignOpts{RegistryUsername: regUsername, RegistryPassword: regPassword})
 	if err != nil {
 		panic(err)
 	}
