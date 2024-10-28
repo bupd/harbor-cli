@@ -52,7 +52,7 @@ jobs:
         with:
           version: "latest"
           verb: call
-          args: "publish-image --reg-username='${{ env.REGISTRY_USERNAME }}' --reg-password='env:${{ env.REGISTRY_PASSWORD }}' --reg-address='${{ env.REGISTRY_ADDRESS }}' --publish-address='${{ env.PUBLISH_ADDRESS }}' --tag='${{ env.TAG }}'"
+          args: "publish-image --reg-username='${{ env.REGISTRY_USERNAME }}' --reg-password='env:REGISTRY_PASSWORD' --reg-address='${{ env.REGISTRY_ADDRESS }}' --publish-address='${{ env.PUBLISH_ADDRESS }}' --tag='${{ env.TAG }}'"
 
       - name: Install cosign
         uses: sigstore/cosign-installer@v3.1.1
