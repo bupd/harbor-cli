@@ -2,8 +2,8 @@ name: Release Artifacts and Container Images
 
 on:
   push:
-    tags:
-      - "v*"
+    # tags:
+    #   - "v*"
 
 permissions:
   contents: write
@@ -24,7 +24,7 @@ jobs:
         with:
           version: "latest"
           verb: call
-          args: release --github-token='env:${{ env.GITHUB_TOKEN }}'
+          args: "release --github-token='env:GITHUB_TOKEN'"
 
   publish-images:
     permissions:
@@ -33,7 +33,6 @@ jobs:
       id-token: write
     runs-on: ubuntu-latest
     environment: PROD
-    id: publish
     env:
       COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
       COSIGN_KEY: ${{ secrets.COSIGN_KEY }}
@@ -48,13 +47,12 @@ jobs:
         with:
           fetch-depth: 0
       - name: Call Docker-Publish Function
+        id: publish
         uses: dagger/dagger-for-github@v6
         with:
           version: "latest"
           verb: call
-          args: "publish-image --cosign-password='env:${{ env.COSIGN_PASSWORD }}' --cosign-key='env:${{ env.COSIGN_KEY }}' --reg-username='${{ env.REGISTRY_USERNAME }}' --reg-password='env:${{ env.REGISTRY_PASSWORD }}' --reg-address='${{ env.REGISTRY_ADDRESS }}' --publish-address='${{ env.PUBLISH_ADDRESS }}' --tag='${{ env.TAG }}'"
-        outputs:
-          image_sha: ${{ steps.publish.outputs.image_sha }}
+          args: "publish-image --reg-username='${{ env.REGISTRY_USERNAME }}' --reg-password='env:${{ env.REGISTRY_PASSWORD }}' --reg-address='${{ env.REGISTRY_ADDRESS }}' --publish-address='${{ env.PUBLISH_ADDRESS }}' --tag='${{ env.TAG }}'"
 
       - name: Install cosign
         uses: sigstore/cosign-installer@v3.1.1
@@ -63,7 +61,7 @@ jobs:
 
       - name: Keyless signing of image
         run: |
-          cosign sign --yes --rekor-url "https://rekor.sigstore.dev/" ${{ steps.publish.outputs.image_sha }}
+          cosign sign --yes --rekor-url "https://rekor.sigstore.dev/" ${{ steps.publish.outputs.stdout }}
 
       - name: Notify on success
         if: success()
