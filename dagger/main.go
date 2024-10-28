@@ -34,11 +34,9 @@ func (m *HarborCli) BuildDev(
 	ctx context.Context,
 	platform string,
 ) *dagger.File {
-
 	fmt.Println("🛠️  Building Harbor-Cli with Dagger...")
 	// Define the path for the binary output
 	os, arch, err := parsePlatform(platform)
-
 	if err != nil {
 		log.Fatalf("Error parsing platform: %v", err)
 	}
@@ -65,8 +63,7 @@ func (m *HarborCli) BuildDev(
 func (m *HarborCli) build(
 	ctx context.Context,
 ) []*dagger.Container {
-	var builds []*dagger.Container
-
+	platformVariants := make([]*dagger.Container, 0, 6)
 	fmt.Println("🛠️  Building with Dagger...")
 	oses := []string{"linux", "darwin", "windows"}
 	arches := []string{"amd64", "arm64"}
@@ -88,18 +85,29 @@ func (m *HarborCli) build(
 				WithExec([]string{"ls"}).
 				WithEntrypoint([]string{"./harbor"})
 
-			builds = append(builds, builder)
+			outputDir := builder.Directory(".")
+
+			// wrap the output directory in a new empty container marked
+			// with the platform
+			platform := fmt.Sprintf("%s/%s", goos, goarch)
+			cont := dag.
+				Container(dagger.ContainerOpts{Platform: dagger.Platform(platform)}).
+				WithRootfs(outputDir).WithEntrypoint([]string{"./harbor"})
+
+			platformVariants = append(platformVariants, cont)
 		}
 	}
-	return builds
+	return platformVariants
 }
 
 // Run linter golangci-lint and write the linting results to a file golangci-lint-report.txt
 func (m *HarborCli) LintReport(ctx context.Context) *dagger.File {
 	report := "golangci-lint-report.sarif"
-	return m.lint(ctx).WithExec([]string{"golangci-lint", "run",
+	return m.lint(ctx).WithExec([]string{
+		"golangci-lint", "run",
 		"--out-format", "sarif:" + report,
-		"--issues-exit-code", "0"}).File(report)
+		"--issues-exit-code", "0",
+	}).File(report)
 }
 
 // Run linter golangci-lint
@@ -125,7 +133,7 @@ func (m *HarborCli) SnapshotRelease(
 ) {
 	_, err := m.
 		goreleaserContainer(githubToken).
-		WithExec([]string{"release", "--snapshot", "--clean"}).
+		WithExec([]string{"goreleaser", "release", "--snapshot", "--clean"}).
 		Stderr(ctx)
 	if err != nil {
 		log.Printf("❌ Error occured during snapshot release for the recently merged pull-request: %s", err)
@@ -163,47 +171,15 @@ func (m *HarborCli) PublishImage(
 	publishAddress string,
 	tag string,
 ) string {
-	var container *dagger.Container
-	var filteredBuilders []*dagger.Container
+	builds := m.build(ctx)
 
-	builders := m.build(ctx)
-	if len(builders) > 0 {
-		fmt.Println(len(builders))
-		container = builders[0]
-		builders = builders[3:6]
-	}
-	dir := dag.Directory()
-	dir = dir.WithDirectory(".", container.Directory("."))
-
-	// Create a minimal cli_runtime container
-	cli_runtime := dag.Container().
-		From("alpine:latest").
-		WithWorkdir("/root/").
-		WithFile("/root/harbor", dir.File("./harbor")).
-		WithExec([]string{"ls"}).
-		WithExec([]string{"./harbor", "--help"}).
-		WithEntrypoint([]string{"./harbor"})
-
-	for _, builder := range builders {
-		if !(buildPlatform(ctx, builder) == "linux/amd64") {
-			filteredBuilders = append(filteredBuilders, builder)
-		}
-	}
-
-	publisher := cli_runtime.WithRegistryAuth(regAddress, regUsername, regPassword)
+	publisher := dag.Container().WithRegistryAuth(regAddress, regUsername, regPassword)
 	// Push the versioned tag
 	versionedAddress := fmt.Sprintf("%s:%s", publishAddress, tag)
-	addr, err := publisher.Publish(ctx, versionedAddress, dagger.ContainerPublishOpts{PlatformVariants: filteredBuilders})
+	addr, err := publisher.Publish(ctx, versionedAddress, dagger.ContainerPublishOpts{PlatformVariants: builds})
 	if err != nil {
 		panic(err)
 	}
-	// Push the latest tag
-	latestAddress := fmt.Sprintf("%s:latest", publishAddress)
-	addr, err = publisher.Publish(ctx, latestAddress)
-	if err != nil {
-		panic(err)
-	}
-
 	_, err = dag.Cosign().Sign(ctx, cosignKey, cosignPassword, []string{addr}, dagger.CosignSignOpts{RegistryUsername: regUsername, RegistryPassword: regPassword})
 	if err != nil {
 		panic(err)
@@ -217,7 +193,7 @@ func (m *HarborCli) PublishImage(
 func buildPlatform(ctx context.Context, container *dagger.Container) string {
 	platform, err := container.Platform(ctx)
 	if err != nil {
-		log.Fatalf("error getting platform", err)
+		log.Fatalf("error getting platform: %v", err)
 	}
 	return string(platform)
 }

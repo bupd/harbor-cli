@@ -118,7 +118,7 @@ winget install harbor
 
 # Build From Source
 
-Make sure you have latest [Dagger](https://docs.dagger.io/) installed in your system. 
+Make sure you have latest [Dagger](https://docs.dagger.io/) installed in your system.
 
 #### Using Dagger
 ```bash
@@ -132,6 +132,20 @@ If golang is installed in your system, you can also build the project using the 
 ```bash
 git clone https://github.com/goharbor/harbor-cli.git
 go build -o harbor-cli cmd/harbor/main.go
+```
+
+
+# Lint
+
+Make sure you have latest [Dagger](https://docs.dagger.io/) installed in your system.
+
+```bash
+dagger call lint
+```
+
+#### Generate Lint Report
+```bash
+dagger call lint-report export --path=./LintReport.txt
 ```
 
 
