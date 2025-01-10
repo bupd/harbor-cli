@@ -146,7 +146,7 @@ jobs:
           echo "GitHub ref: $GITHUB_REF"
 
       - name: Push images
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
+        if: github.event_name == 'push' && (startsWith(github.ref, 'refs/tags/'))
         uses: ./.github/actions/publish-and-sign
         with:
           IMAGE_TAGS: latest, ${{ github.ref_name }}
@@ -156,13 +156,13 @@ jobs:
           REGISTRY_USERNAME: ${{ vars.REGISTRY_USERNAME }}
 
       - name: Checkout repo
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
+        if: github.event_name == 'push' && (startsWith(github.ref, 'refs/tags/'))
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Create Release
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
+        if: github.event_name == 'push' && (startsWith(github.ref, 'refs/tags/'))
         uses: dagger/dagger-for-github@v7
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -172,7 +172,7 @@ jobs:
           args: "release --github-token=env:GITHUB_TOKEN"
 
       - name: Publish and Sign Tagged Image
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
+        if: github.event_name == 'push' && (startsWith(github.ref, 'refs/tags/'))
         uses: ./.github/actions/publish-and-sign
         with:
           IMAGE_TAGS: "latest, ${{ github.ref_name }}"
