@@ -120,8 +120,11 @@ func (m *HarborCli) build(
 				"go", "build", "-ldflags", ldflagsArgs, "-o", "bin/harbor-cli", "cmd/harbor/main.go",
 			}).
 				WithWorkdir(bin_path).
-				WithExec([]string{"ls"}).
-				WithEntrypoint([]string{"./harbor"})
+				WithExec([]string{"ls", "-la"}).
+				WithEntrypoint([]string{"./harbor"}).
+				WithWorkdir("/").
+				WithExec([]string{"ls", "-la"})
+
 			builds = append(builds, builder)
 		}
 	}
@@ -163,13 +166,16 @@ func (m *HarborCli) PublishImage(
 	imageTags []string,
 	registryPassword *dagger.Secret,
 ) []string {
+	// get containers
 	builders := m.build(ctx)
 	releaseImages := []*dagger.Container{}
 
-	for i, tag := range imageTags {
-		imageTags[i] = strings.TrimSpace(tag)
-		if strings.HasPrefix(imageTags[i], "v") {
-			imageTags[i] = strings.TrimPrefix(imageTags[i], "v")
+	if len(imageTags) > 1 {
+		for i, tag := range imageTags {
+			imageTags[i] = strings.TrimSpace(tag)
+			if strings.HasPrefix(imageTags[i], "v") {
+				imageTags[i] = strings.TrimPrefix(imageTags[i], "v")
+			}
 		}
 	}
 	fmt.Printf("provided tags: %s\n", imageTags)
