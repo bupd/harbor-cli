@@ -299,8 +299,9 @@ func (m *HarborCli) GenerateSBOM(
 		From("anchore/syft:latest").
 		WithSecretVariable("SYFT_REGISTRY_AUTH_PASSWORD", registryPassword).
 		WithEnvVariable("SYFT_REGISTRY_AUTH_USERNAME", registryUsername).
-		// Output SPDX JSON to a known path
-		WithExec([]string{"syft", imageAddr, "-o", "spdx-json=/sbom.spdx.json"})
+		// anchore/syft is FROM scratch with ENTRYPOINT ["/syft"] and no $PATH,
+		// so call the binary by its absolute path.
+		WithExec([]string{"/syft", imageAddr, "-o", "spdx-json=/sbom.spdx.json"})
 
 	return syftCtr.File("/sbom.spdx.json")
 }
