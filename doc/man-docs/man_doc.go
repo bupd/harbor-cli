@@ -79,12 +79,7 @@ func cleanManPages(docDir string) error {
 			if err != nil {
 				return err
 			}
-			f, err := root.Open(relPath)
-			if err != nil {
-				return err
-			}
-			defer f.Close()
-			content, err := io.ReadAll(f)
+			content, err := readManPage(root, relPath)
 			if err != nil {
 				return err
 			}
@@ -106,18 +101,41 @@ func cleanManPages(docDir string) error {
 			cleanedContent := strings.Split(updatedContent, "\n.SH HISTORY")[0]
 			cleanedContent = strings.TrimRight(cleanedContent, "\n")
 
-			wf, err := root.OpenFile(relPath, os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0600)
-			if err != nil {
-				return err
-			}
-			defer wf.Close()
-			_, err = wf.Write([]byte(cleanedContent))
-			if err != nil {
+			if err := writeManPage(root, relPath, cleanedContent); err != nil {
 				return err
 			}
 		}
 		return nil
 	})
+}
+
+func readManPage(root *os.Root, relPath string) (_ []byte, err error) {
+	f, err := root.Open(relPath)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if closeErr := f.Close(); err == nil && closeErr != nil {
+			err = closeErr
+		}
+	}()
+
+	return io.ReadAll(f)
+}
+
+func writeManPage(root *os.Root, relPath, content string) (err error) {
+	f, err := root.OpenFile(relPath, os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0600)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if closeErr := f.Close(); err == nil && closeErr != nil {
+			err = closeErr
+		}
+	}()
+
+	_, err = f.Write([]byte(content))
+	return err
 }
 
 func main() {
